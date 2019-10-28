@@ -1,22 +1,12 @@
-# numpy and pandas for data manipulation
-import pandas as pd
-import numpy as np
-
-# model used for feature importances
-import lightgbm as lgb
-
-# utility for early stopping with a validation set
-from sklearn.model_selection import train_test_split
-
-# visualizations
-import matplotlib.pyplot as plt
-import seaborn as sns
-
-# memory management
 import gc
-
-# utilities
 from itertools import chain
+
+import lightgbm as lgb
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import seaborn as sns
+from sklearn.model_selection import train_test_split
 
 class FeatureSelector():
     """
@@ -377,7 +367,48 @@ class FeatureSelector():
                                                                             len(self.record_low_importance), self.cumulative_importance))
         print('%d features do not contribute to cumulative importance of %0.2f.\n' % (len(self.ops['low_importance']),
                                                                                                self.cumulative_importance))
-        
+
+    def identify_clusters(self, K=int(.1*self.data.shape[1]), normalize='standard', max_iter=100):
+        """
+        Identify clusters within the data. Pair this with other dimensionality reduction methods to identify
+        trends/patterns within data.
+
+        Parameters
+        --------
+        K: integer 1 to infinity
+            Initialize the prior with K clusters
+        max_iter: integeer 1 to infinity
+            From Scikit-learn's Bayesian Mixture Model (# of EM iterations)
+        """
+
+        from sklearn.mixture import BayesianGaussianMixture
+
+        self.K = K
+        self.max_iter = max_iter
+        self.normalize_type = normalize
+
+        gmm = BayesianGaussianMixture(n_components=self.K, max_iter==self.max_iter)
+
+        if self.normalize_type == 'standard':
+            from sklearn.preprocessing import LabelEncoder, StandardScaler
+
+            le = LabelEncoder()
+            ss = StandardScaler()
+
+            obj_cols = tmp.columns[tmp.dtypes == 'object']
+            for col in obj_cols:
+                tmp[col] = le.fit_transform(tmp[col].fillna("na").values)
+
+            tmp = ss.fit_transform(self.data)
+            tmp = pd.DataFrame(tmp).fillna(0)
+
+            self.cluster_preds = gmm.fit_predict(tmp)
+
+        else:
+            raise NotImplementedError()
+
+
+
     def identify_all(self, selection_params):
         """
         Use all five of the methods to identify features to remove.
@@ -648,3 +679,4 @@ class FeatureSelector():
 
     def reset_plot(self):
         plt.rcParams = plt.rcParamsDefault
+k
