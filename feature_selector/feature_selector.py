@@ -7,6 +7,8 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 from sklearn.model_selection import train_test_split
+from sklearn.mixture import BayesianGaussianMixture
+from sklearn.preprocessing import LabelEncoder, StandardScaler
 
 class FeatureSelector():
     """
@@ -14,7 +16,7 @@ class FeatureSelector():
     
     Implements five different methods to identify features for removal 
     
-        1. Find columns with a missing percentage greater than a specified threshold
+          1. Find columns with a missing percentage greater than a specified threshold
         2. Find columns with a single unique value
         3. Find collinear variables with a correlation greater than a specified correlation coefficient
         4. Find features with 0.0 feature importance from a gradient boosting machine (gbm)
@@ -368,7 +370,7 @@ class FeatureSelector():
         print('%d features do not contribute to cumulative importance of %0.2f.\n' % (len(self.ops['low_importance']),
                                                                                                self.cumulative_importance))
 
-    def identify_clusters(self, K=int(.1*self.data.shape[1]), normalize='standard', max_iter=100):
+    def identify_clusters(self, K, normalize=True, max_iter=10000):
         """
         Identify clusters within the data. Pair this with other dimensionality reduction methods to identify
         trends/patterns within data.
@@ -377,36 +379,25 @@ class FeatureSelector():
         --------
         K: integer 1 to infinity
             Initialize the prior with K clusters
-        max_iter: integeer 1 to infinity
+        max_iter: integer 1 to infinity
             From Scikit-learn's Bayesian Mixture Model (# of EM iterations)
         """
 
-        from sklearn.mixture import BayesianGaussianMixture
-
+        tmp = pd.get_dummies(self.data).fillna(0)
+        
         self.K = K
         self.max_iter = max_iter
         self.normalize_type = normalize
+        
+        gmm = BayesianGaussianMixture(n_components=self.K, max_iter=self.max_iter)
 
-        gmm = BayesianGaussianMixture(n_components=self.K, max_iter==self.max_iter)
-
-        if self.normalize_type == 'standard':
-            from sklearn.preprocessing import LabelEncoder, StandardScaler
-
-            le = LabelEncoder()
+        if normalize:
             ss = StandardScaler()
+            tmp = ss.fit_transform(tmp)
+            tmp = pd.DataFrame(tmp)
 
-            obj_cols = tmp.columns[tmp.dtypes == 'object']
-            for col in obj_cols:
-                tmp[col] = le.fit_transform(tmp[col].fillna("na").values)
 
-            tmp = ss.fit_transform(self.data)
-            tmp = pd.DataFrame(tmp).fillna(0)
-
-            self.cluster_preds = gmm.fit_predict(tmp)
-
-        else:
-            raise NotImplementedError()
-
+        self.cluster_preds = gmm.fit_predict(tmp)
 
 
     def identify_all(self, selection_params):
@@ -679,4 +670,3 @@ class FeatureSelector():
 
     def reset_plot(self):
         plt.rcParams = plt.rcParamsDefault
-k
