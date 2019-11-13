@@ -370,7 +370,7 @@ class FeatureSelector():
         print('%d features do not contribute to cumulative importance of %0.2f.\n' % (len(self.ops['low_importance']),
                                                                                                self.cumulative_importance))
 
-    def identify_clusters(self, K, normalize=True, max_iter=10000):
+    def identify_clusters(self, K, batch_size=None, normalize=True, max_iter=10000):
         """
         Identify clusters within the data. Pair this with other dimensionality reduction methods to identify
         trends/patterns within data.
@@ -388,15 +388,22 @@ class FeatureSelector():
         self.K = K
         self.max_iter = max_iter
         self.normalize_type = normalize
-        
+
+        # fit transform GMM in batches
+        # it seems as if the GMM has a partial_fit-like feature implemented
+        # https://github.com/scikit-learn/scikit-learn/issues/8714
+        if batch_size is not None:
+            self.batch_size = batch_size
+            
         gmm = BayesianGaussianMixture(n_components=self.K, max_iter=self.max_iter)
 
+        # normalize the entire dataset
         if normalize:
             ss = StandardScaler()
             tmp = ss.fit_transform(tmp)
             tmp = pd.DataFrame(tmp)
 
-
+        # TODO: Set up indexer for batch_size
         self.cluster_preds = gmm.fit_predict(tmp)
 
 
