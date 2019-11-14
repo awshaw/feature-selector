@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
+from sklearn.utils import shuffle
 from sklearn.model_selection import train_test_split
 from sklearn.mixture import BayesianGaussianMixture
 from sklearn.preprocessing import LabelEncoder, StandardScaler
@@ -381,6 +382,7 @@ class FeatureSelector():
             Initialize the prior with K clusters
         max_iter: integer 1 to infinity
             From Scikit-learn's Bayesian Mixture Model (# of EM iterations)
+        batch_size: default None. Integer 1...infinity. 
         """
 
         tmp = pd.get_dummies(self.data).fillna(0)
@@ -389,24 +391,38 @@ class FeatureSelector():
         self.max_iter = max_iter
         self.normalize_type = normalize
 
-        # fit transform GMM in batches
-        # it seems as if the GMM has a partial_fit-like feature implemented
-        # https://github.com/scikit-learn/scikit-learn/issues/8714
-        if batch_size is not None:
-            self.batch_size = batch_size
-            
-        gmm = BayesianGaussianMixture(n_components=self.K, max_iter=self.max_iter)
-
         # normalize the entire dataset
         if normalize:
             ss = StandardScaler()
             tmp = ss.fit_transform(tmp)
             tmp = pd.DataFrame(tmp)
+        
+        # it seems as if the GMM/Basemixture can be modified to implement a partial_fit operation -
+        # https://github.com/scikit-learn/scikit-learn/issues/8714
+        if batch_size is not None:
+            self.batch_size = batch_size
 
-        # TODO: Set up indexer for batch_size
-        self.cluster_preds = gmm.fit_predict(tmp)
+            gmm = BayesianGaussianMixture(n_components=self.K,
+                                      max_iter=self.max_iter,
+                                      warm_start=True)
 
+            index = shuffle(tmp.index))
 
+            array_size = int(tmp.shape[0]/batch_size)
+            last_idx = 0
+
+            for i in range(1, batch_size+1):
+                if i == batch_size:
+                    tmp_idx = index[last_idx:index_len]
+                else:
+                    tmp_idx = index[last_idx:i*array_size]
+                    last_idx = i*array_size
+                    
+                gmm.fit(tmp.iloc[tmp_idx,:])
+
+            self.cluster_preds = gmm.predict(
+                
+                
     def identify_all(self, selection_params):
         """
         Use all five of the methods to identify features to remove.
@@ -429,7 +445,7 @@ class FeatureSelector():
         self.identify_missing(selection_params['missing_threshold'])
         self.identify_single_unique()
         self.identify_collinear(selection_params['correlation_threshold'])
-        self.identify_zero_importance(task = selection_params['task'], eval_metric = selection_params['eval_metric'])
+        self.identify_zero_importance(task=selection_params['task'], eval_metric=selection_params['eval_metric'])
         self.identify_low_importance(selection_params['cumulative_importance'])
         
         # Find the number of features identified to drop
